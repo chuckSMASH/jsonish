@@ -61,6 +61,30 @@ class TextRegexes(unittest.TestCase):
         for bad_num in bad_nums:
             self.assertIsNone(lexer.NUMBER_LITERAL.regex.match(bad_num))
 
+    def test_key_literal(self):
+        good_keys = [
+            r'"\\"',
+            r'""',
+            r'"\u79af"',
+            r'"\""',
+            r'"\"\\\\\"\\\\"',
+            r'"abcdef\\\\"',
+            r'"123"'
+        ]
+        bad_keys = [
+            r'123',
+            r'true',
+            r'"\t"',
+            r'"\b"',
+            r'"\n"',
+            r'"\r"',
+            r'"\f"',
+        ]
+        for good_key in good_keys:
+            self.assertIsNotNone(lexer.KEY_LITERAL.regex.match(good_key))
+        for bad_key in bad_keys:
+            self.assertIsNone(lexer.KEY_LITERAL.regex.match(bad_key))
+
     def test_simple_literals(self):
         for token, s in (
                 (lexer.OBJ_START_LITERAL, '{'),
@@ -79,3 +103,5 @@ class TextRegexes(unittest.TestCase):
             self.assertIsNone(token.regex.match(s + s))
             if s.upper() != s:
                 self.assertIsNone(token.regex.match(s.upper()))
+            if s.lower() != s:
+                self.assertIsNone(token.regex.match(s.lower()))

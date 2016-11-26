@@ -6,7 +6,6 @@ import re
 import sys
 
 
-
 class TokenMeta(type):
     def __new__(cls, name, parents, dct):
         if not dct.get('regex') and not dct.get('regex_str'):
@@ -32,7 +31,7 @@ def token_class_factory(name, regex_str):
 STRING_PATTERN = r'^"(\\"|\\\\|\\/|\b|\f|\n|\r|\t|\\u[A-Fa-f0-9]{4}|[^"\\])*"$'
 NUMBER_PATTERN = r'^-?(0|[1-9]\d*)(\.\d+)?([eE][+-]?\d+)?$'
 BOOLEAN_PATTERN = '^(true|false)$'
-
+KEY_PATTERN = r'^"(\\"|\\\\|\\u[A-Fa-f0-9]{4}|[^"\\\b\f\n\r\t])*"$'
 
 OBJ_START_LITERAL = token_class_factory('OBJ_START_LITERAL', r'^{$')
 OBJ_END_LITERAL = token_class_factory('OBJ_END_LITERAL', r'^}$')
@@ -44,3 +43,4 @@ NULL_LITERAL = token_class_factory('NULL_LITERAL', r'^null$')
 STRING_LITERAL = token_class_factory('STRING_LITERAL', STRING_PATTERN)
 NUMBER_LITERAL = token_class_factory('NUMBER_LITERAL', NUMBER_PATTERN)
 BOOLEAN_LITERAL = token_class_factory('BOOLEAN_LITERAL', BOOLEAN_PATTERN)
+KEY_LITERAL = token_class_factory('KEY_LITERAL', KEY_PATTERN)
