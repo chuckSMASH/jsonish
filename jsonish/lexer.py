@@ -1,46 +1,69 @@
 from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 
-import argparse
-import re
-import sys
+import logging
+
+from . import tokens
 
 
-class TokenMeta(type):
-    def __new__(cls, name, parents, dct):
-        if not dct.get('regex') and not dct.get('regex_str'):
-            raise TypeError('Literal classes must be defined with a regex')
-        elif not dct.get('regex'):
-            regex_str = dct.get('regex_str')
-            dct['regex'] = re.compile(regex_str)
-        return super(TokenMeta, cls).__new__(cls, name, parents, dct)
+logging.basicConfig(
+    format='[%(asctime)s] - %(levelname)s: %(message)s',
+    level=logging.INFO
+)
 
 
-class Token(object):
-    def __init__(self, value):
-        self.value = value
+def tokenize(s):
+    """
+    Convert an input string s into a list of Tokens
+    """
+    logging.debug('Attempting to tokenize: {}'.format(s))
+    tokens = []
+    remaining_str = s
+    while remaining_str != '':
+        remaining_str, token = _consume_next_symbol(remaining_str)
+        tokens.append(token)
+        logging.debug('appended token: {}'.format(token))
+    return tokens
 
-    def __str__(self):
-        return '<{} (value: {})>'.format(self.__class__.__name__, self.value)
+
+def _advance_to_next_symbol(s):
+    for idx, character in enumerate(s):
+        if not tokens.WHITESPACE.regex.match(character):
+            return s[idx:]
+    return ''
 
 
-def token_class_factory(name, regex_str):
-    return TokenMeta(name.encode('ascii'), (Token,), {'regex_str': regex_str})
+def _consume_next_symbol(s):
+    s = _advance_to_next_symbol(s)
+    next_char = s[0] if len(s) > 0 else ''
+    if next_char == '"':
+        s, token = _consume_next_string(s)
+    elif next_char != '':
+        s, token = _consume_next_literal(s)
+    else:
+        s, token = '', tokens.EMPTY_STRING('')
+    return s, token
 
 
-STRING_PATTERN = r'^"(\\"|\\\\|\\/|\b|\f|\n|\r|\t|\\u[A-Fa-f0-9]{4}|[^"\\])*"$'
-NUMBER_PATTERN = r'^-?(0|[1-9]\d*)(\.\d+)?([eE][+-]?\d+)?$'
-BOOLEAN_PATTERN = '^(true|false)$'
-KEY_PATTERN = r'^"(\\"|\\\\|\\u[A-Fa-f0-9]{4}|[^"\\\b\f\n\r\t])*"$'
+def _consume_next_string(s):
+    curr_idx = 0
+    s_length = len(s)
+    while curr_idx < s_length:
+        if tokens.STRING.regex.match(s[:curr_idx]):
+            return s[curr_idx:], tokens.STRING(s[:curr_idx])
+        curr_idx += 1
+    raise ValueError('Unable to consume next string in `{}`'.format(s))
 
-OBJ_START_LITERAL = token_class_factory('OBJ_START_LITERAL', r'^{$')
-OBJ_END_LITERAL = token_class_factory('OBJ_END_LITERAL', r'^}$')
-ARRAY_START_LITERAL = token_class_factory('ARRAY_START_LITERAL', r'^\[$')
-ARRAY_END_LITERAL = token_class_factory('ARRAY_END_LITERAL', r'^\]$')
-COMMA_LITERAL = token_class_factory('COMMA_LITERAL', r'^,$')
-COLON_LITERAL = token_class_factory('COLON_LITERAL', r'^:$')
-NULL_LITERAL = token_class_factory('NULL_LITERAL', r'^null$')
-STRING_LITERAL = token_class_factory('STRING_LITERAL', STRING_PATTERN)
-NUMBER_LITERAL = token_class_factory('NUMBER_LITERAL', NUMBER_PATTERN)
-BOOLEAN_LITERAL = token_class_factory('BOOLEAN_LITERAL', BOOLEAN_PATTERN)
-KEY_LITERAL = token_class_factory('KEY_LITERAL', KEY_PATTERN)
+
+def _consume_next_literal(s):
+    curr_idx = 0
+    s_length = len(s)
+    while curr_idx <= s_length:
+        for token_type in tokens.TOKEN_CLASSES:
+            matches_current = token_type.regex.match(s[:curr_idx])
+            does_not_match_next = token_type.regex.match(s[:curr_idx+1])
+            at_end = curr_idx + 1 > s_length
+            if matches_current and (not does_not_match_next or at_end):
+                return s[curr_idx:], token_type(s[:curr_idx])
+        curr_idx += 1
+    raise ValueError('Unable to consume next literal in `{}`'.format(s))
